@@ -65,18 +65,17 @@ def delete_form():
     return """
     <h2>Delete Soldier</h2>
     <form action="/delete" method="post" enctype="multipart/form-data">
-        Enter Soldier ID to delete: 
-        <input type="text" name="id"><br><br>
+        Enter Soldier phone_number to delete: 
+        <input type="text" name="phone_number"><br><br>
         <input type="submit" value="Delete">
     </form>
     """
-# POST → מקבל את ה־ID ומוחק (כרגע מדמה מחיקה)
 @app.post("/delete", response_class=HTMLResponse)
-def delete_item(id: int = Form(...)):
-    # כאן בעתיד תעשה מחיקה אמיתית מה-DB
+def delete_item(phone_number: str = Form(...)):
+    dal.delete_one(phone_number)
     return f"""
-    <h2> Soldier id {id} Deleted</h2>
-    <p>Soldier with ID <b>{id}</b> has been removed.</p>
+    <h2> Soldier phone_number {phone_number} Deleted</h2>
+    <p>Soldier with phone_number <b>{phone_number}</b> has been removed.</p>
     <br>
     <button onclick="location.href='/delete'">Delete Another</button>
     """
@@ -86,37 +85,29 @@ def update_form():
     return """
     <h2>Update Soldier Rank</h2>
     <form action="/update" method="post" enctype="multipart/form-data">
-        Soldier ID: <input type="number" name="id"><br><br>
+        Phone Number: <input type="text" name="phone_number"><br><br>
         New Rank: <input type="text" name="rank"><br><br>
         <input type="submit" value="Update Rank">
     </form>
     """
 
-# POST → מקבל את ה-ID והדרגה החדשה ומחזיר תשובה
+# POST → gets phone_number and new rank, then updates
 @app.post("/update", response_class=HTMLResponse)
-def update_rank(id: int = Form(...), rank: str = Form(...)):
-    dal.update_one(id,rank)
+def update_rank(phone_number: str = Form(...), rank: str = Form(...)):
+    dal.update_one(phone_number, rank)
     return f"""
-    <h2>✅ Soldier Rank Updated</h2>
-    <p><b>ID:</b> {id}</p>
+    <h2>Soldier Rank Updated</h2>
+    <p><b>Phone Number:</b> {phone_number}</p>
     <p><b>New Rank:</b> {rank}</p>
     <br>
     <button onclick="location.href='/update'">Update Another</button>
     """
 
-
-@app.get("/read", response_class=HTMLResponse)
+@app.get("/read")
 def read_all():
     soldiers = dal.get_all()
-
-
+    print(soldiers)
     if not soldiers:
-        return "<h2>No soldiers found in the database.</h2>"
+        return {"a":"No soldiers found in the database"}
 
-
-    table = "<h2>All Soldiers</h2><table border='1' cellpadding='5'>"
-    table += "<tr><th>ID</th><th>First Name</th><th>Last Name</th><th>Phone</th><th>Rank</th></tr>"
-    for s in soldiers:
-        table += f"<tr><td>{s['id']}</td><td>{s['first_name']}</td><td>{s['last_name']}</td><td>{s['phone_number']}</td><td>{s['rank']}</td></tr>"
-    table += "</table>"
-    return table
+    return soldiers
