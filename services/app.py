@@ -1,12 +1,25 @@
 from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse
 from models.solider import Soldier   # ודא שהקובץ באמת נקרא solider.py
+from services.DAL import DAL_mongo
+import os
 
 app = FastAPI()
 
-# דף הבית עם 4 כפתורים
+
+HOST = os.getenv("HOST", "localhost")
+USER = os.getenv("USER", None)
+PASSWORD = os.getenv("PASSWORD", None)
+DB = os.getenv("DATABASE", "enemy_soldiers")
+COLLECTION = os.getenv("COLLECTION", "soldier_details")
+
+
+dal = DAL_mongo(HOST, DB, COLLECTION, USER, PASSWORD)
+
+
 @app.get("/", response_class=HTMLResponse)
 def home():
+    dal.open_connection()
     return """
     <h1>Choose your option</h1>
     <button onclick="location.href='/create'">Create</button>
@@ -37,7 +50,7 @@ def create_item(
     rank: str = Form(...)
 ):
     soldier = Soldier(id, first_name, last_name, phone_number, rank)
-
+    dal.insert_one({"first_name":soldier.first_name,"last_name":soldier.last_name,"phone_number":soldier.phone_number,"rank":soldier.rank})
     return f"""
     <h2>✅ Soldier Created Successfully!</h2>
     <p><b>ID:</b> {soldier.id}</p>
@@ -52,18 +65,17 @@ def delete_form():
     return """
     <h2>Delete Soldier</h2>
     <form action="/delete" method="post" enctype="multipart/form-data">
-        Enter Soldier ID to delete: 
-        <input type="text" name="id"><br><br>
+        Enter Soldier phone_number to delete: 
+        <input type="text" name="phone_number"><br><br>
         <input type="submit" value="Delete">
     </form>
     """
-# POST → מקבל את ה־ID ומוחק (כרגע מדמה מחיקה)
 @app.post("/delete", response_class=HTMLResponse)
-def delete_item(id: int = Form(...)):
-    # כאן בעתיד תעשה מחיקה אמיתית מה-DB
+def delete_item(phone_number: str = Form(...)):
+    dal.delete_one(phone_number)
     return f"""
-    <h2> Soldier id {id} Deleted</h2>
-    <p>Soldier with ID <b>{id}</b> has been removed.</p>
+    <h2> Soldier phone_number {phone_number} Deleted</h2>
+    <p>Soldier with phone_number <b>{phone_number}</b> has been removed.</p>
     <br>
     <button onclick="location.href='/delete'">Delete Another</button>
     """
@@ -73,40 +85,29 @@ def update_form():
     return """
     <h2>Update Soldier Rank</h2>
     <form action="/update" method="post" enctype="multipart/form-data">
-        Soldier ID: <input type="number" name="id"><br><br>
+        Phone Number: <input type="text" name="phone_number"><br><br>
         New Rank: <input type="text" name="rank"><br><br>
         <input type="submit" value="Update Rank">
     </form>
     """
 
-# POST → מקבל את ה-ID והדרגה החדשה ומחזיר תשובה
+# POST → gets phone_number and new rank, then updates
 @app.post("/update", response_class=HTMLResponse)
-def update_rank(id: int = Form(...), rank: str = Form(...)):
-    # כאן בעתיד תשים UPDATE אמיתי ל-DB
+def update_rank(phone_number: str = Form(...), rank: str = Form(...)):
+    dal.update_one(phone_number, rank)
     return f"""
-    <h2>✅ Soldier Rank Updated</h2>
-    <p><b>ID:</b> {id}</p>
+    <h2>Soldier Rank Updated</h2>
+    <p><b>Phone Number:</b> {phone_number}</p>
     <p><b>New Rank:</b> {rank}</p>
     <br>
     <button onclick="location.href='/update'">Update Another</button>
     """
 
-
-@app.get("/read", response_class=HTMLResponse)
+@app.get("/read")
 def read_all():
-    soldiers = [
-    {"id": 1, "first_name": "David", "last_name": "Levi", "phone_number": "0501234567", "rank": "Captain"},
-    {"id": 2, "first_name": "Moshe", "last_name": "Cohen", "phone_number": "0527654321", "rank": "Sergeant"}
-]
-    # tbh eut kpuebmv pou
-
+    soldiers = dal.get_all()
+    print(soldiers)
     if not soldiers:
-        return "<h2>No soldiers found in the database.</h2>"
+        return {"a":"No soldiers found in the database"}
 
-    # בניית טבלה HTML
-    table = "<h2>All Soldiers</h2><table border='1' cellpadding='5'>"
-    table += "<tr><th>ID</th><th>First Name</th><th>Last Name</th><th>Phone</th><th>Rank</th></tr>"
-    for s in soldiers:
-        table += f"<tr><td>{s['id']}</td><td>{s['first_name']}</td><td>{s['last_name']}</td><td>{s['phone_number']}</td><td>{s['rank']}</td></tr>"
-    table += "</table>"
-    return table
+    return soldiers
