@@ -28,8 +28,6 @@ def create_form():
         <input type="submit" value="Submit">
     </form>
     """
-
-
 @app.post("/create", response_class=HTMLResponse)
 def create_item(
     id: int = Form(...),
