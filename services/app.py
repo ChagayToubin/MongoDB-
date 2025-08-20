@@ -1,12 +1,25 @@
 from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse
 from models.solider import Soldier   # ודא שהקובץ באמת נקרא solider.py
+from services.DAL import DAL_mongo
+import os
 
 app = FastAPI()
 
-# דף הבית עם 4 כפתורים
+
+HOST = os.getenv("HOST", "localhost")
+USER = os.getenv("USER", None)
+PASSWORD = os.getenv("PASSWORD", None)
+DB = os.getenv("DATABASE", "enemy_soldiers")
+COLLECTION = os.getenv("COLLECTION", "soldier_details")
+
+
+dal = DAL_mongo(HOST, DB, COLLECTION, USER, PASSWORD)
+
+
 @app.get("/", response_class=HTMLResponse)
 def home():
+    dal.open_connection()
     return """
     <h1>Choose your option</h1>
     <button onclick="location.href='/create'">Create</button>
@@ -37,7 +50,7 @@ def create_item(
     rank: str = Form(...)
 ):
     soldier = Soldier(id, first_name, last_name, phone_number, rank)
-
+    dal.insert_one({"first_name":soldier.first_name,"last_name":soldier.last_name,"phone_number":soldier.phone_number,"rank":soldier.rank})
     return f"""
     <h2>✅ Soldier Created Successfully!</h2>
     <p><b>ID:</b> {soldier.id}</p>
@@ -82,7 +95,7 @@ def update_form():
 # POST → מקבל את ה-ID והדרגה החדשה ומחזיר תשובה
 @app.post("/update", response_class=HTMLResponse)
 def update_rank(id: int = Form(...), rank: str = Form(...)):
-    # כאן בעתיד תשים UPDATE אמיתי ל-DB
+    dal.update_one(id,rank)
     return f"""
     <h2>✅ Soldier Rank Updated</h2>
     <p><b>ID:</b> {id}</p>
@@ -94,16 +107,13 @@ def update_rank(id: int = Form(...), rank: str = Form(...)):
 
 @app.get("/read", response_class=HTMLResponse)
 def read_all():
-    soldiers = [
-    {"id": 1, "first_name": "David", "last_name": "Levi", "phone_number": "0501234567", "rank": "Captain"},
-    {"id": 2, "first_name": "Moshe", "last_name": "Cohen", "phone_number": "0527654321", "rank": "Sergeant"}
-]
-    # tbh eut kpuebmv pou
+    soldiers = dal.get_all()
+
 
     if not soldiers:
         return "<h2>No soldiers found in the database.</h2>"
 
-    # בניית טבלה HTML
+
     table = "<h2>All Soldiers</h2><table border='1' cellpadding='5'>"
     table += "<tr><th>ID</th><th>First Name</th><th>Last Name</th><th>Phone</th><th>Rank</th></tr>"
     for s in soldiers:
